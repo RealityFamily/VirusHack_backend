@@ -48,15 +48,28 @@ namespace VirusHack.WebApp.Controllers
                 var group = await context.Groups.FindAsync(user.GroupId);
                 if (user != null)
                 {
-                    return new JsonResult(new
+                    if (group != null)
                     {
-                        Id = userId,
-                        FirstName = user.FirstName,
-                        LastName = user.LastName,
-                        Email = user.Email,
-                        Group = group.Name,
-                        UserStatus = user.UserStatus.ToString()
-                    });
+                        return new JsonResult(new
+                        {
+                            Id = userId,
+                            FirstName = user.FirstName,
+                            LastName = user.LastName,
+                            Email = user.Email,
+                            Group = group.Name,
+                            UserStatus = user.UserStatus.ToString()
+                        });
+                    } else
+                    {
+                        return new JsonResult(new
+                        {
+                            Id = userId,
+                            FirstName = user.FirstName,
+                            LastName = user.LastName,
+                            Email = user.Email,
+                            UserStatus = user.UserStatus.ToString()
+                        });
+                    }
                 }
                 return BadRequest("User not found");
             }

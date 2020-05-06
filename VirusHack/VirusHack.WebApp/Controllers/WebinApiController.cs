@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -136,8 +137,10 @@ namespace VirusHack.WebApp.Controllers
         {
             var result = await context.Webinars.FindAsync(webinar_Id);
             var eventId = result.SiteEventId;
+            var startTime = result.StartTime.ToString("yyyy-MM-dd+HH:mm:ss");
+            var endTime = DateTime.Now.ToString("yyyy-MM-dd+HH:mm:ss"); //result.StartTime.AddHours(1).AddMinutes(30).ToString("yyyy-MM-dd+HH:mm:ss");
 
-            var client = new RestClient($"https://userapi.webinar.ru/v3/stats/users?from=2020-04-01&to=2020-06-01&eventId={eventId}");
+            var client = new RestClient($"https://userapi.webinar.ru/v3/stats/users?from={startTime}&to={endTime}&eventId={eventId}");
             var request = new RestRequest(Method.GET);
             request.AddHeader("x-auth-token", "8368b48e9ebc600cf40f52cd9b007c5e");
             request.AddHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -156,7 +159,18 @@ namespace VirusHack.WebApp.Controllers
             {
                 Id = webinar.Id,
                 Discipline = webinar.Discipline,
-                Groups = webinar.Groups.Select(g => new GroupView { Id = g.Group.Id, Name = g.Group.Name }).ToList(),
+                Groups = webinar.Groups.Select(g => new GroupView { 
+                    Id = g.Group.Id, 
+                    Name = g.Group.Name, 
+                    Students = g.Group.Students.Select(s => new User { 
+                        Id = s.Id, 
+                        FirstName = s.FirstName,
+                        LastName = s.LastName,
+                        UserStatus = s.UserStatus,
+                        Group = s.Group,
+                        GroupId = s.GroupId
+                    }).ToList() 
+                }).ToList(), //webinar.Groups.Select(g => new GroupView { Id = g.Group.Id, Name = g.Group.Name, Students =g.Group.Students }).ToList(),
                 Teacher = new TeacherView
                 {
                     Id = webinar.Teacher.Id,
@@ -172,21 +186,22 @@ namespace VirusHack.WebApp.Controllers
                 LessonStatus = webinar.LessonStatus.ToString(),
                 Files = null
             };
-            return new JsonResult(result);
+            int i = 5;
+            return new JsonResult(res);
         }
 
-        [HttpGet("webin/day")]
-        public async Task<IActionResult> GetDayWebinars(string token)
+        [HttpGet("webin/{date}/day")]
+        public async Task<IActionResult> GetDayWebinars(string token, DateTime date)
         {
             if (token != null)
             {
                 var userId = await ReadTokenAsync(token);
                 var user = await userManager.FindByIdAsync(userId.ToString());
-                var groupId = user.Group.Id;
+                //var groupId = user.Group.Id;
                 var now = DateTime.Now.Date;
 
                 var webinars = context.Webinars.Include(w => w.Groups).ThenInclude(g => g.Group).ThenInclude(s => s.Students);
-                var weekWebinars = webinars.Where(w => w.StartTime.Date == now);
+                var weekWebinars = webinars.Where(w => w.StartTime.Date == date);
 
                 return new JsonResult(weekWebinars.Select(w => new WebinarsResponce
                 {
@@ -205,22 +220,23 @@ namespace VirusHack.WebApp.Controllers
                     EndTime = w.EndTime.ToString(),
                     Present = null,
                     TypeLesson = w.TypeLesson.ToString(),
+                    LessonStatus = w.LessonStatus.ToString(),
                     Files = null
                 }));
             }
             return BadRequest("No token");
         }
 
-        [HttpGet("webin")]
-        public async Task<IActionResult> GetWeekWebinars(string token)
+        [HttpGet("webin/{date}")]
+        public async Task<IActionResult> GetWeekWebinars(string token, DateTime date)
         {
             if (token != null)
             {
                 var userId = await ReadTokenAsync(token);
                 var user = await userManager.FindByIdAsync(userId.ToString());
-                var groupId = user.GroupId;
-                var now = DateTime.Now.Date;
-                var week = DateTime.Now.Date.AddDays(7);
+                //var groupId = user.GroupId;
+                var now = date;
+                var week = date.AddDays(7);
 
                 var webinars = context.Webinars.Include(w => w.Groups).ThenInclude(g => g.Group).ThenInclude(s => s.Students);
                 var weekWebinars = webinars.Where(w => w.StartTime.Date >= now && w.StartTime.Date <= week).Include(t => t.Teacher);
