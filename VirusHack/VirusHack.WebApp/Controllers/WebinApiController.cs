@@ -101,7 +101,17 @@ namespace VirusHack.WebApp.Controllers
             var userId = await ReadTokenAsync(token);
             var user = await userManager.FindByIdAsync(userId.ToString());
             var webinar = await context.Webinars.FindAsync(webinar_Id);
-
+            string role = "GUEST";
+            if (user.UserStatus != UserStatus.Student)
+            {
+                if (user.UserStatus == UserStatus.Teacher)
+                {
+                    role = "LECTURER";
+                } else if (user.UserStatus == UserStatus.Admin)
+                {
+                    role = "ADMIN";
+                }
+            }
 
             var client = new RestClient($"https://userapi.webinar.ru/v3/eventsessions/{webinar.EventSessionId}/register");
             var request = new RestRequest(Method.POST);
@@ -110,6 +120,7 @@ namespace VirusHack.WebApp.Controllers
             request.AddParameter("email", user.Email);
             request.AddParameter("name", user.FirstName);
             request.AddParameter("secondName", user.LastName);
+            request.AddParameter("role", role);
             request.AddParameter("isAutoEnter", "true");
 
             IRestResponse response = client.Execute(request);
@@ -148,7 +159,7 @@ namespace VirusHack.WebApp.Controllers
             IRestResponse response = client.Execute(request);
             var json = JsonConvert.DeserializeObject<List<StatisticResponse>>(response.Content.ToString());
 
-            var webinars = context.Webinars.Include(w => w.Groups).ThenInclude(g => g.Group);
+            var webinars = context.Webinars.Include(w => w.Groups).ThenInclude(g => g.Group).ThenInclude(s => s.Students);
             var webinar = webinars.Include(w => w.Teacher).FirstOrDefault(w => w.Id == webinar_Id);
             //List<UserView> userViews
             //foreach (var item in collection)
@@ -166,9 +177,7 @@ namespace VirusHack.WebApp.Controllers
                         Id = s.Id, 
                         FirstName = s.FirstName,
                         LastName = s.LastName,
-                        UserStatus = s.UserStatus,
-                        Group = s.Group,
-                        GroupId = s.GroupId
+                        UserStatus = s.UserStatus
                     }).ToList() 
                 }).ToList(), //webinar.Groups.Select(g => new GroupView { Id = g.Group.Id, Name = g.Group.Name, Students =g.Group.Students }).ToList(),
                 Teacher = new TeacherView

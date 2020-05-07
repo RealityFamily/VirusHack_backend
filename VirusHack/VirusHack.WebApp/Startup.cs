@@ -80,7 +80,7 @@ namespace VirusHack.WebApp
 
             services.AddAuthorization();
 
-            services.AddMvc(config => config.EnableEndpointRouting = false);
+            services.AddMvc(config => config.EnableEndpointRouting = false).AddNewtonsoftJson(config => config.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
